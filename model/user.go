@@ -45,6 +45,16 @@ type User struct {
 	Remark           string         `json:"remark,omitempty" gorm:"type:varchar(255)" validate:"max=255"`
 }
 
+type CleanUser struct {
+	Id           int    `json:"id"`
+	Username     string `json:"username"`
+	DisplayName  string `json:"display_name"`
+	Role         int    `json:"role"`
+	Status       int    `json:"status"`
+	Group        string `json:"group"`
+	DefaultToken string `json:"default_token"`
+}
+
 func (user *User) ToBaseUser() *UserBase {
 	cache := &UserBase{
 		Id:       user.Id,

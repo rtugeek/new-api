@@ -81,13 +81,22 @@ func setupLogin(user *model.User, c *gin.Context) {
 		})
 		return
 	}
-	cleanUser := model.User{
-		Id:          user.Id,
-		Username:    user.Username,
-		DisplayName: user.DisplayName,
-		Role:        user.Role,
-		Status:      user.Status,
-		Group:       user.Group,
+	token, defaultTokenErr := model.GetUserDefaultToken(user.Id)
+	if defaultTokenErr != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"message": "无法创建默认token，请重试",
+			"success": false,
+		})
+		return
+	}
+	cleanUser := model.CleanUser{
+		Id:           user.Id,
+		Username:     user.Username,
+		DisplayName:  user.DisplayName,
+		Role:         user.Role,
+		Status:       user.Status,
+		Group:        user.Group,
+		DefaultToken: token.Key,
 	}
 	c.JSON(http.StatusOK, gin.H{
 		"message": "",

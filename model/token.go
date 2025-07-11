@@ -62,6 +62,60 @@ func GetAllUserTokens(userId int, startIdx int, num int) ([]*Token, error) {
 	return tokens, err
 }
 
+func GenerateDefaultToken(userId int) (*Token, error) {
+	key, genKeyErr := common.GenerateKey()
+	if genKeyErr != nil {
+		common.SysError("failed to generate token key: " + genKeyErr.Error())
+		return nil, genKeyErr
+	}
+	token := Token{
+		UserId:             userId,
+		Key:                key,
+		Status:             common.TokenStatusEnabled,
+		Name:               "默认令牌/Default",
+		CreatedTime:        common.GetTimestamp(),
+		AccessedTime:       common.GetTimestamp(),
+		ExpiredTime:        -1, // never expired
+		RemainQuota:        500000,
+		UnlimitedQuota:     true,
+		ModelLimitsEnabled: false,
+		ModelLimits:        "",
+		Group:              "default",
+	}
+	err := token.Insert()
+	if err != nil {
+		return nil, err
+	}
+	if common.RedisEnabled {
+		gopool.Go(func() {
+			if err := cacheSetToken(token); err != nil {
+				common.SysError("failed to update user status cache: " + err.Error())
+			}
+		})
+	}
+	return &token, nil
+}
+
+func GetUserDefaultToken(userId int) (*Token, error) {
+	var token Token
+	err := DB.Where("user_id = ? AND status = ?", userId, common.TokenStatusEnabled).Order("id asc").First(&token).Error
+	if err != nil {
+		defaultToken, genErr := GenerateDefaultToken(userId)
+		if genErr != nil {
+			return nil, genErr
+		}
+		return defaultToken, nil
+	}
+	if shouldUpdateRedis(true, err) {
+		gopool.Go(func() {
+			if err := cacheSetToken(token); err != nil {
+				common.SysError("failed to update user status cache: " + err.Error())
+			}
+		})
+	}
+	return &token, nil
+}
+
 func SearchUserTokens(userId int, keyword string, token string) (tokens []*Token, err error) {
 	if token != "" {
 		token = strings.Trim(token, "sk-")
